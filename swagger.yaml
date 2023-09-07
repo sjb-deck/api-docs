@@ -1,0 +1,563 @@
+openapi: 3.0.1
+info:
+  title: IMS API
+  description: Inventory Management System
+  version: 1.0.0
+servers:
+- url: https://deckland.nhhs-sjb.org/inventory/api
+security:
+  - cookieAuth: []
+paths:
+  /items:
+    get:
+      tags:
+      - Item
+      summary: Gets all items
+      description: |
+        Gets all items
+      responses:
+        200:
+          description: An array of items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /orders:
+    get:
+      tags:
+      - Order
+      summary: Gets all orders
+      description: Gets all orders
+      responses:
+        200:
+          description: Returns all orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /orders/{option}:
+    get:
+      tags:
+      - Order
+      summary: Gets orders
+      description: Gets all orders, filtered based on option
+      parameters:
+      - name: option
+        in: path
+        description: The option to filter or process the orders.
+        required: true
+        schema:
+          type: string
+          default: all
+          enum:
+          - all
+          - order
+          - loan
+      responses:
+        200:
+          description: Returns the specified orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /orders/get/{order_id}:
+    get:
+      tags:
+      - Order
+      summary: Gets details of a specific order
+      description: Gets details of a specific order
+      parameters:
+      - name: order_id
+        in: path
+        description: The order_id to get
+        required: true
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Returns the specified order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /submit_order:
+    post:
+      tags:
+      - Order
+      summary: Submits a new order
+      description: |
+        Submits new order, and executes the withdrawal or deposit of items in database. The following checks are conducted:
+        - Ensure ordered_quantity > 0
+        - Sufficient quantity for withdrawal
+        - action/reason not in enum
+        - Invalid item_expiry_id
+        - Missing fields
+        - Archives item expiry if qty == 0 and not in active loan
+      requestBody:
+        description: Details for the order submission
+        content:
+          application/json:
+            schema:
+              required:
+              - action
+              - order_items
+              - reason
+              type: object
+              properties:
+                action:
+                  type: string
+                  description: Withdraw or Deposit
+                  example: Withdraw
+                  enum:
+                  - Withdraw
+                  - Deposit
+                reason:
+                  type: string
+                  description: Reason for order
+                  example: loan
+                  enum:
+                  - loan
+                  - kit_restock
+                  - unserviceable
+                  - others
+                  - item_restock
+                user:
+                  type: integer
+                  description: The primary key of the user requesting the order
+                order_items:
+                  type: array
+                  description: The items associated with the order
+                  items:
+                    required:
+                    - item_expiry_id
+                    - ordered_quantity
+                    type: object
+                    properties:
+                      item_expiry_id:
+                        type: integer
+                        description: The primary key of the item expiry
+                      ordered_quantity:
+                        type: integer
+                        description: The quantity involved in the oder
+                loanee_name:
+                  type: string
+                  description: Loanee name for loan orders
+                due_date:
+                  type: string
+                  description: Date in YYYY-MM-DD where loan must be returned by
+                other_info:
+                  type: string
+                  description: Field used when reason is 'others'
+        required: true
+      responses:
+        200:
+          description: Returns the newly created order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /add_item:
+    post:
+      tags:
+        - Item
+      summary: Create a new Item
+      description: | 
+        Create a new Item. The following checks are conducted
+        
+        - Format of date for expiry date is correct
+        - All expiry dates are unique
+        - All item names are unique
+      requestBody:
+        description: Details of new item
+        content:
+          application/json:
+            schema:
+              required:
+              - name
+              - type
+              - unit
+              - total_quantity
+              - min_quantity
+              - is_opened
+              - expiry_dates
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the new item
+                type:
+                  type: string
+                  description: Type of new item
+                  example: General
+                  enum:
+                  - General
+                  - Solution
+                  - Dressing
+                  - Universal Precaution
+                unit:
+                  type: string
+                  description: The unit of measure for item
+                total_quantity:
+                  type: integer
+                  description: The total quantity of the item across all expirys
+                min_quantity:
+                  type: integer
+                  description: The minimum quantity before an alert is created
+                is_opened:
+                  type: boolean
+                  description: If item is out of packaging
+                expiry_dates:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - expiry_date
+                      - quantity
+                    properties:
+                      expiry_date:
+                        type: string
+                        description: Expiry of item in YYYY-MM-DD
+                      quantity:
+                        type: integer
+                        description: Quantity associated with this item expiry
+                      archived:
+                        type: integer
+                        description: If this item expiry should be archived (not displayed to user)
+        required: true
+      responses:
+        200:
+          description: Returns the newly created item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /add_expiry:
+    post:
+      tags:
+        - Item
+      summary: Adds a new expiry to an item
+      description: | 
+        Adds a new expiry to an item. The following checks are conducted:
+        
+        - Ensure expiry date abide by YYYY-MM-DD format
+        - Quantity >= 0
+        - Ensure new expiry is not already present
+        - Ensure item id is valid
+        - Ensure item to add expiry to has expiries (you cannot add expiries to an item with no expiry date eg. scissors)
+      requestBody:
+        description: Details of new expiry
+        content:
+          application/json:
+            schema:
+              required:
+              - item
+              - expiry_date
+              - qunatity
+              type: object
+              properties:
+                item:
+                  type: integer
+                  description: The primary key of Item
+                expiry_date:
+                  type: string
+                  description: The new item expiry
+                qunatity:
+                  type: integer
+                  description: The quantity of the new item expiry
+        required: true
+      responses:
+        200:
+          description: Returns the item with new item expiry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /loan_return_post:
+    post:
+      tags:
+        - Order
+      summary: Returns an active loan
+      description: | 
+        Returns an active loan. The following checks will be conducted:
+        
+        - Check that order id is valid, and points to an active loan
+        - Check that order_item_id is valid
+        - Check that returned quantity >= 0
+        - items field cannot be empty
+      requestBody:
+        description: Details of returned loan
+        content:
+          application/json:
+            schema:
+              required:
+              - items
+              - order_id
+              type: object
+              properties:
+                order_id:
+                  type: integer
+                  description: The primary key of Loan order
+                items:
+                  type: array
+                  description: The returned items
+                  items:
+                    type: object
+                    required:
+                      - order_item_id 
+                      - returned_quantity
+                    properties:
+                      order_item_id:
+                        type: integer
+                        description: The id of item expiry
+                      returned_quantity:
+                        type: integer
+                        description: The returned quantity of order
+        required: true
+      responses:
+        200:
+          description: Returns the returned loan order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /revert_order:
+    post:
+      tags:
+        - Order
+      summary: Reverts an order
+      description: | 
+        Reverts an order.
+        - Case 1: Reverting order. Delete order and revert items (ie. if withdraw order, deposit the items back)
+        - Case 2: Reverting active loan. Delete loan order and revert items (ie. deposit items)
+        - Case 3: Reverting inactive loan. Revert the loan order to active and revert items (ie. withdraw items returned)
+      requestBody:
+        description: Order ID to revert
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: integer
+              format: int32
+              example: 1
+      responses:
+        200:
+          description: Returns a message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: integer
+                    default: 200
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user:
+    get:
+      tags:
+      - User
+      summary: Gets the currently logged in user
+      description: |
+        Gets the currently logged in user
+      responses:
+        200:
+          description: Returns the currently logged in user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: header
+      name: Cookie
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing an Item
+        username:
+          type: string
+          description: Username used to login
+        email:
+          type: string
+          description: Email of user. This field is usually blank
+        extras:
+          type: object
+          properties:
+            profile_pic:
+              type: string
+              description: Part of the url to image. Appended to domain to form image
+                url
+            role:
+              type: string
+              description: Possible values; User, Admin, Developer
+            name:
+              type: string
+              description: Name of user which is displayed in UI
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing an Item
+        name:
+          type: string
+          description: Name of product.
+        type:
+          type: string
+          description: Item type (limited to choices specified in typechoices), defaults
+            to 'General'
+        unit:
+          type: string
+          description: Metric to measure quantity. Defualts to 'units'
+        image:
+          type: string
+          description: Directory path to image. Can be blank
+        total_quantity:
+          type: integer
+          description: Quantity of item for all expirys. Defaults to 0
+        min_quantity:
+          type: integer
+          description: Minimum quantity for item for all expirys before warning. Defaults
+            to 0
+        is_opened:
+          type: boolean
+          description: Whether item is opened or not.
+        expiry_dates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemExpiry'
+    ItemExpiry:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing an ItemExpiry.
+        expiry_date:
+          type: string
+          description: The expiry of this item.
+        quantity:
+          type: integer
+          description: Quantity of opened item for current expirys. Defaults to 0
+        archived:
+          type: boolean
+          description: Flag that decide if the item expiry should be displayed
+    Order:
+      required:
+      - action
+      - date
+      - id
+      - order_items
+      - other_info
+      - reason
+      - user
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing an Order.
+        user:
+          $ref: '#/components/schemas/User'
+        order_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemExpiry'
+        action:
+          type: string
+          description: Withdraw or Deposit
+        reason:
+          type: string
+          description: Reason for the order
+        date:
+          type: string
+          description: Date order is placed, with timezone
+        other_info:
+          type: string
+          description: Populated when reason is Others
+        loanee_name:
+          type: string
+          description: Name of loanee if order is a loan
+        due_date:
+          type: string
+          description: Date when loan should be returned
+        return_date:
+          type: string
+          description: Date loan is returned
+        loan_active:
+          type: boolean
+          description: If loan is currently active, or has been returned
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
