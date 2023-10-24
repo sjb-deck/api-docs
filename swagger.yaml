@@ -33,7 +33,7 @@ paths:
   /orders:
     get:
       tags:
-      - Order
+      - Item Order
       summary: Gets all orders
       description: Gets all orders
       responses:
@@ -52,7 +52,7 @@ paths:
   /orders/{option}:
     get:
       tags:
-      - Order
+      - Item Order
       summary: Gets orders
       description: Gets all orders, filtered based on option
       parameters:
@@ -83,7 +83,7 @@ paths:
   /orders/get/{order_id}:
     get:
       tags:
-      - Order
+      - Item Order
       summary: Gets details of a specific order
       description: Gets details of a specific order
       parameters:
@@ -109,7 +109,7 @@ paths:
   /submit_order:
     post:
       tags:
-      - Order
+      - Item Order
       summary: Submits a new order
       description: |
         Submits new order, and executes the withdrawal or deposit of items in database. The following checks are conducted:
@@ -319,7 +319,7 @@ paths:
   /loan_return_post:
     post:
       tags:
-        - Order
+        - Item Order
       summary: Returns an active loan
       description: | 
         Returns an active loan. The following checks will be conducted:
@@ -373,7 +373,7 @@ paths:
   /revert_order:
     post:
       tags:
-        - Order
+        - Item Order
       summary: Reverts an order
       description: | 
         Reverts an order.
@@ -428,7 +428,263 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
+  /kits:
+    get:
+      tags:
+      - Kit
+      summary: Gets all the non-retired kits
+      description: Gets all the non-retired kits
+      responses:
+        200:
+          description: Returns all the non-retired kits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kit'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /add_kit:
+    post:
+      tags:
+      - Kit
+      summary: Creates a new kit
+      description: Creates a new kit
+      requestBody:
+        description: Information of new kit
+        content:
+          application/json:
+            schema:
+              required:
+              - name
+              - content
+              - blueprint
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of new kit
+                content:
+                  type: string
+                  description: JSON string representing current state of kit
+                blueprint:
+                  oneOf:
+                  - $ref: '#/components/schemas/KitBlueprint'
+                  - type: integer
+                    description: ID of existing blueprint
+                  - type: string
+                    description: Name of existing blueprint
+        required: true
+      responses:
+        200:
+          description: Returns the newly created kit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kit'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /retire_kit:
+    post:
+      tags:
+      - Kit
+      summary: Retires a kit
+      description: Retires a kit
+      requestBody:
+        description: Kit ID to retire
+        content:
+          application/json:
+            schema:
+              required:
+              - kit_id
+              type: object
+              properties:
+                kit_id:
+                  type: integer
+                  description: ID of kit
+        required: true
+      responses:
+        200:
+          description: Returns the Kit with the updated status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kit'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /kit_history/{kit_id}:
+    get:
+      tags:
+      - Kit Order
+      summary: Returns history of a kit
+      description: Returns history of a kit
+      parameters:
+      - name: kit_id
+        in: path
+        description: The kit_id to get
+        required: true
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Returns an array of Kit History objects for that kit
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KitHistory'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /submit_kit_order:
+    post:
+      tags:
+      - Kit Order
+      summary: Submits a new order for a kit
+      description: Submits a new order for a kit
+      requestBody:
+        description: Information of transaction
+        content:
+          application/json:
+            schema:
+              required:
+              - kit_id
+              - content
+              - type
+              type: object
+              properties:
+                kit_id:
+                  type: integer
+                  description: ID of kit involved in transaction
+                content:
+                  type: string
+                  description: JSON string representing new state of kit
+                type:
+                  type: string
+                  description: Type of transaction (limited to choices specified in HISTORY_TYPE)
+                loanee_name:
+                  type: string
+                  description: Name of person loaned to
+                due_date:
+                  type: string
+                  description: Deadline for loan return
+                reason:
+                  type: string
+                  description: Reason for transaction
+                
+        required: true
+      responses:
+        200:
+          description: Returns the newly created Kit History object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitHistory'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /return_kit_order:
+    post:
+      tags:
+      - Kit Order
+      summary: Submits a return order for a kit
+      description: Submits a return order for a kit
+      requestBody:
+        description: Return information
+        content:
+          application/json:
+            schema:
+              required:
+              - kit_id
+              - content
+              - return_date
+              type: object
+              properties:
+                kit_id:
+                  type: integer
+                  description: ID of kit involved in transaction
+                content:
+                  type: string
+                  description: JSON string representing new state of kit after loan
+                due_date:
+                  type: string
+                  description: Deadline for loan return
+                return_date:
+                  type: string
+                  description: Date returned
+        required: true
+      responses:
+        200:
+          description: Returns the updated Kit History object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitHistory'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /revert_kit_order:
+    post:
+      tags:
+      - Kit Order
+      summary: Reverts a kit order
+      description: Reverts a kit order
+      requestBody:
+        description: Kit ID to revert
+        content:
+          application/json:
+            schema:
+              required:
+              - kit_id
+              type: object
+              properties:
+                kit_id:
+                  type: integer
+                  description: ID of kit
+        required: true
+      responses:
+        200:
+          description: Returns the current state of the kit after revert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kit'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
 components:
   securitySchemes:
     cookieAuth:
@@ -553,6 +809,79 @@ components:
         loan_active:
           type: boolean
           description: If loan is currently active, or has been returned
+          
+    Kit:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing a Kit
+        name:
+          type: string
+          description: Name of the Kit
+        blueprint:
+          $ref: '#/components/schemas/KitBlueprint'
+        status:
+          type: string
+          description: Status of Kit (limited to choices specified in KIT_STATUS)
+        content:
+          type: string
+          description: JSON string representing current state of kit
+        history:
+          $ref: '#/components/schemas/KitHistory'
+    
+    KitBlueprint:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing a Blueprint
+        name: 
+          type: string
+          description: Name of the blueprint
+        complete_content:
+          type: string
+          description: JSON string representing ideal state of kit
+    
+    KitHistory:
+      type: object
+      required:
+      - id
+      - type
+      - date
+      - user
+      - pre_snapshot
+      properties:
+        id:
+          type: integer
+          description: Unique identifier representing a History
+        type:
+          type: string
+          description: Type of transaction (limited to choices specified in HISTORY_TYPE)
+        date:
+          type: string
+          description: Date transaction occured
+        user:
+          $ref: '#/components/schemas/User'
+        pre_snapshot:
+          type: string
+          description: JSON string representing kit state before transaction
+        post_snapshot:
+          type: string
+          description: JSON string representing kit state after transaction
+        loanee_name:
+          type: string
+          description: Name of loanee
+        due_date:
+          type: string
+          description: Date loan should be returned
+        return_date:
+          type: string
+          description: Date loan was returned
+        reason:
+          type: string
+          description: Reason for loan
+    
     Error:
       type: object
       properties:
